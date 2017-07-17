@@ -15,6 +15,14 @@ extern "C" {
 JNIEXPORT jlong JNICALL Java_y_sizer_jni_StackSizeAccess_getStackSize
   (JNIEnv *, jclass);
 
+/*
+ * Class:     y_sizer_jni_StackSizeAccess
+ * Method:    getThreadInfo
+ * Signature: ()Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_y_sizer_jni_StackSizeAccess_getThreadInfo
+  (JNIEnv *, jclass);
+
 #ifdef __cplusplus
 }
 #endif

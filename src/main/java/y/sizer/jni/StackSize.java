@@ -9,6 +9,11 @@ public class StackSize {
         return StackSizeAccess.getStackSize();
     }
 
+    public String getThreadInfo() {
+        return StackSizeAccess.getThreadInfo();
+    }
+
+
     private static final long MB = 1024 * 1024;
 
     public static void main(String[] args) throws Exception {
