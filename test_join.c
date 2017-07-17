@@ -1,41 +1,7 @@
-/* Copyright 2017 Yahoo Inc. */
-/* Licensed under the terms of the 3-Clause BSD license. See LICENSE file in the project root for details. */
-
-#define _GNU_SOURCE     /* To get pthread_getattr_np() declaration */
+#include <stdio.h>
 #include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-
-#include <jni.h>
-#include <stdio.h>
 #include <string.h>
-#include <pthread.h>
-
-#include "y_sizer_jni_StackSizeAccess.h"
-
-#define RUNTIME_EXCEPTION "java/lang/RuntimeException"
-
-static void ThrowException(JNIEnv *jenv, const char *exceptionClass, const char *message)
-{
-  jclass clazz = 0;
-
-  if (!jenv || !exceptionClass) {
-    return;
-  }
-
-  jenv->ExceptionClear();
-
-  clazz = jenv->FindClass(exceptionClass);
-
-  if (0 == clazz) {
-    fprintf(stderr, "Error, cannot find exception class: %s", exceptionClass);
-    return;
-  }
-
-  jenv->ThrowNew(clazz, message);
-}
+#include <stdlib.h>
 
 /** dump_pthread_attr was built from display_pthread_attr which was copied from http://man7.org/linux/man-pages/man3/pthread_attr_init.3.html
   * which says:
@@ -136,40 +102,7 @@ static int dump_pthread_attr(char *buffer, size_t size, pthread_attr_t *attr)
   return 0;
 }
 
-
-/*
- * Class:     y_sizer_jni_StackSizeAccess
- * Method:    getStackSize
- * Signature: ()J
- */
-JNIEXPORT jlong JNICALL Java_y_sizer_jni_StackSizeAccess_getStackSize
-  (JNIEnv *jenv, jclass)
-{
-  pthread_attr_t tattr;
-  size_t size = 0;
-
-  memset(&tattr, 0, sizeof(tattr));
-  int ret = pthread_attr_getstacksize(&tattr, &size);
-
-  if (0 != ret) {
-    char error[1024] = {0,};
-    snprintf (error, sizeof(error), "Error %s", strerror(ret));
-    ThrowException(jenv, RUNTIME_EXCEPTION, error);
-
-    return -1;
-  }
-
-  return (jlong)size;
-}
-
-/*
- * Class:     y_sizer_jni_StackSizeAccess
- * Method:    getThreadInfo
- * Signature: ()Ljava/lang/String;
- */
-JNIEXPORT jstring JNICALL Java_y_sizer_jni_StackSizeAccess_getThreadInfo
-  (JNIEnv *jenv, jclass)
-{
+char *getThreadAttr() {
   int ret = 0;
   pthread_attr_t tattr;
 
@@ -180,11 +113,9 @@ JNIEXPORT jstring JNICALL Java_y_sizer_jni_StackSizeAccess_getThreadInfo
   first argument */
   ret = pthread_getattr_np(pthread_self(), &tattr);
   if (0 != ret) {
-    char error[1024] = {0,};
-    snprintf (error, sizeof(error), "Error %s", strerror(ret));
-    ThrowException(jenv, RUNTIME_EXCEPTION, error);
+    fprintf (stderr, "Error %s", strerror(ret));
 
-    return 0;
+    return NULL;
   }
 
   size_t buffersize = 8192;
@@ -192,8 +123,59 @@ JNIEXPORT jstring JNICALL Java_y_sizer_jni_StackSizeAccess_getThreadInfo
 
   dump_pthread_attr(buffer, buffersize, &tattr);
 
-  jstring stringRet = jenv->NewStringUTF(buffer);
+  return buffer;
+}
+
+void *child(void *arg) {
+  long *retVal = (long *)calloc(1, sizeof(long));
+  *retVal = 0xDEADCAFE;
+
+  char *buffer = getThreadAttr();
+  fprintf(stderr, "child attr %s\n", buffer);
   free(buffer);
 
-  return stringRet;
+  fprintf(stderr, "child returning %p\n", retVal);
+
+  return retVal;
+}
+
+int main(int argc, char **argv) {
+  char *buffer = getThreadAttr();
+  fprintf(stderr, "main attr %s\n", buffer);
+  free(buffer);
+
+  pthread_t child_thread;
+  pthread_attr_t attr;
+  int ret = 0;
+
+  ret = pthread_attr_init(&attr);
+  if (0 != ret) {
+    fprintf(stderr, "pthread_attr_init failed: %s\n", strerror(ret));
+    return -1;
+  }
+
+  ret = pthread_attr_setstacksize(&attr, 5 * 1024 * 1024);
+  if (0 != ret) {
+    fprintf(stderr, "pthread_attr_setstacksize failed: %s\n", strerror(ret));
+    return -2;
+  }
+
+  ret = pthread_create (&child_thread, &attr, child, NULL);
+  if (0 != ret) {
+    fprintf(stderr, "pthread_create failed: %s\n", strerror(ret));
+    return -3;
+  }
+
+  void *retVal = NULL;
+
+  ret = pthread_join(child_thread, &retVal);
+  if (0 != ret) {
+    fprintf(stderr, "pthread_join failed: %s\n", strerror(ret));
+    return -4;
+  }
+
+  if (NULL != retVal) {
+    fprintf(stderr, "got %p containing 0x%zx\n", retVal, *((long*)retVal));
+    free(retVal);
+  }
 }

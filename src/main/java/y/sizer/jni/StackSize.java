@@ -16,14 +16,18 @@ public class StackSize {
 
     private static final long MB = 1024 * 1024;
 
+    private final void print(String prefix) {
+        System.out.println(prefix + (getStackSize() / MB) + " MB \n" + getThreadInfo());
+    }
+
     public static void main(String[] args) throws Exception {
 
         StackSize s = new StackSize();
 
-        System.out.println("Main Stack size: " + (s.getStackSize() / MB) + " MB ");
+        s.print("Main Stack size: ");
 
         Thread t = new Thread(() -> {
-            System.out.println("New thread Stack size: " + (s.getStackSize() / MB) + " MB ");
+            s.print("New thread Stack size: ");
         });
 
         t.start();
