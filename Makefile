@@ -32,7 +32,7 @@ JAVA_LIBRARY_PATH=$(JAVA_HOME)/jre/lib/$(LINUX_ADD)server/
 JAVA_INCLUDES=-I$(JAVA_HOME)/include/ -I$(JAVA_HOME)/include/$(JAVA_OS)/ -L$(JAVA_LIBRARY_PATH)
 
 CXXFLAGS=$(JAVA_INCLUDES)  -g -shared -fPIC -pthread
-LFLAGS = -Wall -lpthread 
+LFLAGS = -Wall -lpthread -lstdc++
 
 LIB_OBJS=y_sizer_jni_StackSizeAccess.o 
 LIBNAME=libstacksize.$(EXT)
